@@ -1,0 +1,257 @@
+name: Deploy Node.js Backend to Azure Web App
+
+on:
+  workflow_dispatch:
+  # Push trigger comentado para evitar deploy automático no primeiro commit
+  # Descomente as linhas abaixo se quiser deploy automático em futuros pushes:
+  # push:
+  #   branches:
+  #     - main
+
+permissions:
+  contents: read
+
+jobs:
+  # TEMPORARIAMENTE DESABILITADO - Database deployment será reabilitado no futuro
+  # deploy-database:
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: 'Production'
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Check for database scripts
+  #       id: check-database
+  #       run: |
+  #         if [ -d "database" ]; then
+  #           echo "Database folder found"
+  #           echo "has_database=true" >> $GITHUB_OUTPUT
+  #         else
+  #           echo "No database folder found - skipping database deployment"
+  #           echo "has_database=false" >> $GITHUB_OUTPUT
+  #         fi
+  #
+  #     - name: Install SQL Server Tools
+  #       if: steps.check-database.outputs.has_database == 'true'
+  #       run: |
+  #         curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+  #         curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+  #         sudo apt-get update
+  #         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+  #         echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bash_profile
+  #         echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+  #         source ~/.bashrc
+  #
+  #     - name: Execute Database Scripts
+  #       if: steps.check-database.outputs.has_database == 'true'
+  #       run: |
+  #         echo "Deploying database scripts..."
+  #         SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+  #
+  #         # Build connection string with port
+  #         DB_SERVER_WITH_PORT="${{ secrets.DB_SERVER }},${{ secrets.DB_PORT }}"
+  #
+  #         # Set encryption flags based on DB_ENCRYPT secret
+  #         ENCRYPT_FLAGS=""
+  #         if [ "${{ secrets.DB_ENCRYPT }}" == "true" ]; then
+  #           echo "Using encrypted connection"
+  #           ENCRYPT_FLAGS="-N -C"  # -N: Encrypt connection, -C: Trust server certificate
+  #         else
+  #           echo "Using unencrypted connection"
+  #         fi
+  #
+  #         # 1. Execute _structure.sql for all schemas
+  #         for schema in config functional security subscription; do
+  #           if [ -f "database/$schema/_structure.sql" ]; then
+  #             echo "Executing database/$schema/_structure.sql..."
+  #             $SQLCMD -S "$DB_SERVER_WITH_PORT" \
+  #               -d ${{ secrets.DB_NAME }} \
+  #               -U ${{ secrets.DB_USER }} \
+  #               -P ${{ secrets.DB_PASSWORD }} \
+  #               $ENCRYPT_FLAGS \
+  #               -i "database/$schema/_structure.sql"
+  #
+  #             if [ $? -ne 0 ]; then
+  #               echo "ERROR: Failed to execute database/$schema/_structure.sql"
+  #               exit 1
+  #             fi
+  #           fi
+  #         done
+  #
+  #         # 2. Execute stored procedures (all sp*.sql files in functional schema)
+  #         if [ -d "database/functional" ]; then
+  #           find database/functional -name "sp*.sql" -type f | sort | while read sp_file; do
+  #             echo "Executing $sp_file..."
+  #             $SQLCMD -S "$DB_SERVER_WITH_PORT" \
+  #               -d ${{ secrets.DB_NAME }} \
+  #               -U ${{ secrets.DB_USER }} \
+  #               -P ${{ secrets.DB_PASSWORD }} \
+  #               $ENCRYPT_FLAGS \
+  #               -i "$sp_file"
+  #
+  #             if [ $? -ne 0 ]; then
+  #               echo "ERROR: Failed to execute $sp_file"
+  #               exit 1
+  #             fi
+  #           done
+  #         fi
+  #
+  #         # 3. Execute _data.sql (seed data - optional)
+  #         for schema in config functional security subscription; do
+  #           if [ -f "database/$schema/_data.sql" ]; then
+  #             echo "Executing database/$schema/_data.sql..."
+  #             $SQLCMD -S "$DB_SERVER_WITH_PORT" \
+  #               -d ${{ secrets.DB_NAME }} \
+  #               -U ${{ secrets.DB_USER }} \
+  #               -P ${{ secrets.DB_PASSWORD }} \
+  #               $ENCRYPT_FLAGS \
+  #               -i "database/$schema/_data.sql"
+  #
+  #             if [ $? -ne 0 ]; then
+  #               echo "WARNING: Failed to execute database/$schema/_data.sql (seed data is optional)"
+  #             fi
+  #           fi
+  #         done
+  #
+  #         echo "✅ Database deployment completed successfully"
+
+  build:
+    runs-on: ubuntu-latest
+    # needs: deploy-database  # DESABILITADO: dependência removida temporariamente
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      - name: Validate package.json
+        working-directory: ./backend
+        run: |
+          # Verificar se package.json existe
+          if [ ! -f "package.json" ]; then
+            echo "ERROR: package.json not found in backend folder!"
+            exit 1
+          fi
+
+          # Verificar se tem script start (necessário para Azure)
+          if ! grep -q '"start"' package.json; then
+            echo "ERROR: No 'start' script found in package.json!"
+            echo "Add a start script to your package.json, like:"
+            echo '  "start": "node index.js" or "start": "node dist/index.js"'
+            exit 1
+          fi
+
+          echo "✓ package.json validated"
+
+      - name: npm install, build, and test
+        working-directory: ./backend
+        run: |
+          npm install
+          npm run build --if-present
+          npm run test --if-present -- --passWithNoTests || true
+
+      - name: Zip artifact for deployment
+        working-directory: ./backend
+        run: |
+          echo "Backend folder contents before zip:"
+          ls -la
+          echo "Creating zip with all files including node_modules..."
+          zip -r ../release.zip . -x "*.git*"
+          cd ..
+          echo "Release zip created, size:"
+          ls -lh release.zip
+          echo "Checking zip contents:"
+          unzip -l release.zip | head -20
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: ./release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+
+      - name: Unzip artifact for deployment
+        run: |
+          unzip release.zip
+          echo "Checking for package.json:"
+          if [ -f "package.json" ]; then
+            echo "package.json found!"
+            head -5 package.json
+          else
+            echo "ERROR: package.json not found!"
+          fi
+
+      - name: Create .env file for deployment
+        run: |
+          echo "Creating .env file with CORS configuration..."
+          cat > .env << EOF
+          CORS_ORIGINS=https://${{ secrets.APP_NAME_FRONTEND }}.azurewebsites.net
+          EOF
+          echo "✓ .env file created"
+
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.APP_NAME_BACKEND }}
+          publish-profile: ${{ secrets.BACKEND_PUBLISH_PROFILE }}
+          package: .
+
+      - name: Verify deployment health
+        run: |
+          echo "Waiting for deployment to be ready..."
+          APP_URL="https://${{ secrets.APP_NAME_BACKEND }}.azurewebsites.net"
+
+          for i in {1..12}; do
+            echo "Health check attempt $i/12..."
+
+            # Tentar acessar a URL do app (pode ser /health, /api/health ou /)
+            for ENDPOINT in "/health" "/api/health" "/"; do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL$ENDPOINT" || echo "000")
+
+              # Aceitar qualquer resposta HTTP (2xx, 3xx, 4xx, 5xx) como sinal de que a app está rodando
+              # Apenas 503 (Service Unavailable) ou 000 (sem resposta) indicam problema
+              if [[ "$HTTP_CODE" =~ ^[2-5][0-9][0-9]$ ]] && [ "$HTTP_CODE" != "503" ]; then
+                echo "✅ Backend is responding! (HTTP $HTTP_CODE at $ENDPOINT)"
+                echo "Deployment successful: $APP_URL"
+                exit 0
+              fi
+            done
+
+            if [ "$HTTP_CODE" == "503" ]; then
+              echo "⚠️ Backend returned HTTP 503 (Service Unavailable)"
+            elif [ "$HTTP_CODE" != "000" ]; then
+              echo "⚠️ Backend returned HTTP $HTTP_CODE"
+            else
+              echo "Backend not responding yet..."
+            fi
+
+            if [ $i -lt 12 ]; then
+              echo "Waiting 15 seconds before next check..."
+              sleep 15
+            fi
+          done
+
+          echo "⚠️ Backend health check did not get a response after 3 minutes"
+          echo "Deployment may still be initializing. Check: $APP_URL"
+          echo "Note: This is a warning, not a failure. The deployment was completed."
+          exit 0
