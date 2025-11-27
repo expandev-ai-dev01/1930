@@ -1,7 +1,14 @@
+import { useEffect } from 'react';
+import { useNavigation } from '@/core/hooks/useNavigation';
+
 function HomePage() {
-  return (
-    <div className='flex flex-col items-center justify-center space-y-4 py-12 text-center'></div>
-  );
+  const { navigate } = useNavigation();
+
+  useEffect(() => {
+    navigate('/');
+  }, [navigate]);
+
+  return null;
 }
 
 export { HomePage };

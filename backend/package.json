@@ -1,7 +1,7 @@
 {
-  "name": "editor-musica-cifrada-backend",
+  "name": "taskmanager-backend",
   "version": "1.0.0",
-  "description": "Backend API for Editor de Música Cifrada",
+  "description": "Sistema onde eu poderei cadastrar minhas Tarefas e agendar pra quando elas são, além de classificar a importancia dela",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -9,12 +9,7 @@
     "start": "node dist/server.js",
     "postinstall": "patch-package"
   },
-  "keywords": [
-    "music",
-    "chords",
-    "cifras",
-    "api"
-  ],
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -24,6 +19,7 @@
     "compression": "^1.7.4",
     "dotenv": "^16.3.1",
     "zod": "^3.22.4",
+    "uuid": "^9.0.1",
     "patch-package": "^8.0.0"
   },
   "devDependencies": {
@@ -31,6 +27,7 @@
     "@types/cors": "^2.8.17",
     "@types/compression": "^1.7.5",
     "@types/node": "^20.10.5",
+    "@types/uuid": "^9.0.7",
     "typescript": "^5.3.3",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.8"
