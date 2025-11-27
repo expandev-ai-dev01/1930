@@ -1,0 +1,131 @@
+# {{projectName}} - Backend API
+
+{{projectDescription}}
+
+## 🚀 Tech Stack
+
+- **Runtime**: Node.js
+- **Language**: TypeScript
+- **Framework**: Express.js
+- **Architecture**: REST API
+
+## 📋 Prerequisites
+
+- Node.js >= 18.x
+- npm >= 9.x
+
+## 🔧 Installation
+
+```bash
+# Install dependencies
+npm install
+```
+
+## ⚙️ Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+### Environment Variables
+
+- `NODE_ENV`: Environment mode (development/production)
+- `PORT`: Server port (default: 3000)
+- `API_VERSION`: API version (default: v1)
+- `CORS_ORIGINS`: Allowed CORS origins (comma-separated)
+
+## 🏃 Running
+
+```bash
+# Development mode with hot reload
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm start
+```
+
+## 📁 Project Structure
+
+```
+src/
+├── api/              # API controllers
+├── config/           # Configuration files
+├── constants/        # Application constants
+├── instances/        # Service instances
+├── middleware/       # Express middleware
+│   ├── error/        # Error handling
+│   └── notFound/     # 404 handler
+├── routes/           # API routes
+│   └── v1/           # Version 1 routes
+├── services/         # Business logic
+├── utils/            # Utility functions
+│   ├── response/     # Response formatters
+│   └── validation/   # Validation schemas
+└── server.ts         # Application entry point
+```
+
+## 🔌 API Endpoints
+
+### Health Check
+- `GET /health` - Health check endpoint
+
+### API Routes
+- `/api/v1/external/*` - Public endpoints
+- `/api/v1/internal/*` - Authenticated endpoints
+
+## 📝 API Response Format
+
+### Success Response
+```json
+{
+  "success": true,
+  "data": {},
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Error message",
+    "details": {}
+  },
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+## 🧪 Development
+
+This project uses:
+- **TypeScript** with strict mode
+- **Path aliases** (@/*) resolved via tsc-alias
+- **Hot reload** via ts-node-dev
+- **Zod** for validation
+
+## 📦 Build
+
+The build process:
+1. Compiles TypeScript to JavaScript (`tsc`)
+2. Resolves path aliases (`tsc-alias`)
+3. Outputs to `dist/` directory
+
+## 🔒 Security
+
+- **Helmet**: Security headers
+- **CORS**: Cross-origin resource sharing
+- **Compression**: Response compression
+- **Validation**: Input validation with Zod
+
+## 📄 License
+
+ISC
